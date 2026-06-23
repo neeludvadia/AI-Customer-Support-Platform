@@ -55,12 +55,12 @@ class AuthService:
             hashed_password=hash_password(data.password),
         )
 
-    def login(self, email: str, password: str) -> str:
-        """Authenticate user and return a JWT access token."""
+    def login(self, email: str, password: str) -> tuple[str, str]:
+        """Authenticate user and return (access_token, username)."""
         user = self.repo.get_by_email(email)
         if not user or not verify_password(password, user.hashed_password):
             raise ValueError("Invalid email or password")
-        return create_access_token(user.id)
+        return create_access_token(user.id), user.username
 
     def get_user_by_id(self, user_id: int) -> User | None:
         return self.repo.get_by_id(user_id)
