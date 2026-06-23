@@ -1,0 +1,9 @@
+sqlalchemy>=2.0
+alembic
+psycopg2-binary
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+pydantic-settings
+email-validator
+python-dotenv
