@@ -3,8 +3,10 @@ alembic
 psycopg2-binary
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt==4.0.1
 python-multipart
 pydantic-settings
 email-validator
 python-dotenv
 pypdf
+fastapi[standard]
