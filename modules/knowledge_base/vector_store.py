@@ -83,52 +83,73 @@ class VectorStoreHelper:
         embeddings = self.generate_embeddings([text])
         return embeddings[0] if embeddings else []
 
-    def index_document(self, doc_id: int, title: str, text: str) -> None:
-        chunks = self.chunk_text(text)
-        if not chunks:
-            return
-        
-        embeddings = self.generate_embeddings(chunks)
-        
+    def index_document(
+        self,
+        doc_id: int,
+        title: str,
+        original_filename: str,
+        pages: list[dict],  # [{"text": str, "page_number": int}, ...]
+    ) -> None:
+        """Chunk each page individually so every chunk carries its source page number."""
         points = []
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-            point_id = str(uuid.uuid4())
+        all_chunks: list[tuple[str, int]] = []  # (chunk_text, page_number)
+
+        for page in pages:
+            page_text = page.get("text", "").strip()
+            page_number = page.get("page_number", 1)
+            if not page_text:
+                continue
+            for chunk in self.chunk_text(page_text):
+                all_chunks.append((chunk, page_number))
+
+        if not all_chunks:
+            return
+
+        texts = [c[0] for c in all_chunks]
+        embeddings = self.generate_embeddings(texts)
+
+        for i, ((chunk_text, page_number), embedding) in enumerate(zip(all_chunks, embeddings)):
             points.append(
                 PointStruct(
-                    id=point_id,
+                    id=str(uuid.uuid4()),
                     vector=embedding,
                     payload={
                         "document_id": doc_id,
                         "title": title,
-                        "text": chunk,
-                        "chunk_index": i
-                    }
+                        "original_filename": original_filename,
+                        "text": chunk_text,
+                        "page_number": page_number,
+                        "chunk_index": i,
+                    },
                 )
             )
-        
+
         if points:
             self.qdrant_client.upsert(
                 collection_name=self.collection_name,
-                points=points
+                points=points,
             )
 
     def search_similar_chunks(self, query_vector: list[float], top_k: int = 3) -> list[dict]:
         if not query_vector:
             return []
-            
+
         results = self.qdrant_client.query_points(
             collection_name=self.collection_name,
             query=query_vector,
-            limit=top_k
+            limit=top_k,
         )
-        
+
         chunks = []
         if hasattr(results, "points") and results.points:
             for hit in results.points:
+                p = hit.payload or {}
                 chunks.append({
-                    "document_id": hit.payload.get("document_id") if hit.payload else None,
-                    "title": hit.payload.get("title") if hit.payload else None,
-                    "text": hit.payload.get("text") if hit.payload else None,
-                    "score": hit.score
+                    "document_id": p.get("document_id"),
+                    "title": p.get("title"),
+                    "original_filename": p.get("original_filename"),
+                    "text": p.get("text"),
+                    "page_number": p.get("page_number"),
+                    "score": hit.score,
                 })
         return chunks

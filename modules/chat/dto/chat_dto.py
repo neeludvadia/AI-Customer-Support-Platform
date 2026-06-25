@@ -22,11 +22,19 @@ class MessageCreateRequest(BaseModel):
     content: str
 
 
+class Citation(BaseModel):
+    document_id: int
+    title: str
+    filename: str
+    page: int
+
+
 class MessageResponse(BaseModel):
     id: int
     conversation_id: int
     sender: str
     content: str
+    citations: List[Citation] = []
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -22,20 +22,27 @@ class ChatRepository:
     def list_conversations_by_user(self, user_id: int) -> list[Conversation]:
         return self.db.query(Conversation).filter(Conversation.user_id == user_id).order_by(Conversation.updated_at.desc()).all()
 
-    def create_message(self, conversation_id: int, sender: str, content: str) -> Message:
+    def create_message(
+        self,
+        conversation_id: int,
+        sender: str,
+        content: str,
+        citations: list[dict] | None = None,
+    ) -> Message:
         message = Message(
             conversation_id=conversation_id,
             sender=sender,
-            content=content
+            content=content,
+            citations=citations,
         )
         self.db.add(message)
-        
+
         # Also update conversation's updated_at timestamp
         conversation = self.get_conversation_by_id(conversation_id)
         if conversation:
             from sqlalchemy.sql import func
             conversation.updated_at = func.now()
-            
+
         self.db.commit()
         self.db.refresh(message)
         return message

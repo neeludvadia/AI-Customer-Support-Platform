@@ -52,28 +52,30 @@ class ChatService:
         # 4. Construct content history for Gemini API
         # Map sender ("user" | "assistant") to Gemini roles ("user" | "model")
         contents = []
+        retrieved_chunks: list[dict] = []
+
         for i, msg in enumerate(db_messages):
             role = "user" if msg.sender == "user" else "model"
-            
-            # If it is the last message (the user's current query), we augment it with retrieved context
+
+            # Augment the last user message with relevant context from the knowledge base
             if i == len(db_messages) - 1 and role == "user":
                 context_str = ""
                 try:
                     from modules.knowledge_base.vector_store import VectorStoreHelper
                     vector_store = VectorStoreHelper()
                     query_vector = vector_store.embed_query(content)
-                    chunks = vector_store.search_similar_chunks(query_vector, top_k=3)
-                    if chunks:
+                    retrieved_chunks = vector_store.search_similar_chunks(query_vector, top_k=3)
+                    if retrieved_chunks:
                         context_str = "Relevant Context from Knowledge Base:\n"
-                        for chunk in chunks:
+                        for chunk in retrieved_chunks:
                             context_str += f"- From Document '{chunk['title']}': {chunk['text']}\n"
                 except Exception as e:
                     print(f"Error retrieving context from vector store: {e}")
-                
+
                 augmented_text = msg.content
                 if context_str:
                     augmented_text = f"{context_str}\nUser Question: {msg.content}"
-                
+
                 contents.append(
                     types.Content(
                         role=role,
@@ -107,7 +109,33 @@ class ChatService:
         except Exception as e:
             ai_content = f"Error communicating with AI service: {str(e)}"
 
-        # 6. Save AI reply to database
-        ai_msg = self.repo.create_message(conversation_id, sender="assistant", content=ai_content)
+        # 6. Build deduplicated citations from retrieved chunks
+        seen: set[tuple] = set()
+        citations: list[dict] = []
+        for chunk in retrieved_chunks:
+            doc_id = chunk.get("document_id")
+            page = chunk.get("page_number")
+            filename = chunk.get("original_filename")
+            title = chunk.get("title")
+            if doc_id is None or page is None:
+                continue
+            key = (doc_id, page)
+            if key not in seen:
+                seen.add(key)
+                citations.append({
+                    "document_id": doc_id,
+                    "title": title or "",
+                    "filename": filename or "",
+                    "page": page,
+                })
+
+        # 7. Save AI reply to database (with citations)
+        ai_msg = self.repo.create_message(
+            conversation_id,
+            sender="assistant",
+            content=ai_content,
+            citations=citations if citations else None,
+        )
 
         return ai_msg
+

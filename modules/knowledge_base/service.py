@@ -36,26 +36,39 @@ class KnowledgeBaseService:
         )
 
         # Extract text immediately (can be moved to a background task later)
-        self._extract_and_save(doc.id, file_path)
+        self._extract_and_save(doc.id, file_path, original_filename=filename)
         return self.repo.get_by_id(doc.id)
 
-    def _extract_and_save(self, doc_id: int, file_path: str) -> None:
-        """Extract text from PDF and update the document record."""
+    def _extract_and_save(self, doc_id: int, file_path: str, original_filename: str) -> None:
+        """Extract text from PDF per page and update the document record."""
         try:
             reader = PdfReader(file_path)
-            extracted = "\n".join(
-                page.extract_text() or "" for page in reader.pages
-            ).strip()
+
+            # Build per-page list for Qdrant (1-indexed pages)
+            pages = []
+            all_text_parts = []
+            for page_num, page in enumerate(reader.pages, start=1):
+                page_text = page.extract_text() or ""
+                all_text_parts.append(page_text)
+                if page_text.strip():
+                    pages.append({"text": page_text, "page_number": page_num})
+
+            extracted = "\n".join(all_text_parts).strip()
             self.repo.update_extracted_text(doc_id, extracted, status="processed")
-            
-            # Index to Qdrant vector database
-            if extracted:
+
+            # Index to Qdrant vector database with page-level granularity
+            if pages:
                 try:
                     from modules.knowledge_base.vector_store import VectorStoreHelper
                     vector_store = VectorStoreHelper()
                     doc = self.repo.get_by_id(doc_id)
                     title = doc.title if doc else f"Doc {doc_id}"
-                    vector_store.index_document(doc_id=doc_id, title=title, text=extracted)
+                    vector_store.index_document(
+                        doc_id=doc_id,
+                        title=title,
+                        original_filename=original_filename,
+                        pages=pages,
+                    )
                 except Exception as ve:
                     print(f"Error indexing document {doc_id} to vector store: {ve}")
         except Exception:

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database.database import Base
@@ -29,6 +29,7 @@ class Message(Base):
     conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
     sender = Column(String, nullable=False)  # "user" | "assistant"
     content = Column(Text, nullable=False)
+    citations = Column(JSON, nullable=True)  # [{document_id, title, filename, page}, ...]
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     conversation = relationship("Conversation", back_populates="messages")
