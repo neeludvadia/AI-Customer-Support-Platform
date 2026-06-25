@@ -47,6 +47,17 @@ class KnowledgeBaseService:
                 page.extract_text() or "" for page in reader.pages
             ).strip()
             self.repo.update_extracted_text(doc_id, extracted, status="processed")
+            
+            # Index to Qdrant vector database
+            if extracted:
+                try:
+                    from modules.knowledge_base.vector_store import VectorStoreHelper
+                    vector_store = VectorStoreHelper()
+                    doc = self.repo.get_by_id(doc_id)
+                    title = doc.title if doc else f"Doc {doc_id}"
+                    vector_store.index_document(doc_id=doc_id, title=title, text=extracted)
+                except Exception as ve:
+                    print(f"Error indexing document {doc_id} to vector store: {ve}")
         except Exception:
             self.repo.update_extracted_text(doc_id, "", status="failed")
 

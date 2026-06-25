@@ -11,4 +11,4 @@ python-dotenv
 pypdf
 fastapi[standard]
 google-genai
-
+qdrant-client

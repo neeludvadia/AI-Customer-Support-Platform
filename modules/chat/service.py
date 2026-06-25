@@ -52,19 +52,51 @@ class ChatService:
         # 4. Construct content history for Gemini API
         # Map sender ("user" | "assistant") to Gemini roles ("user" | "model")
         contents = []
-        for msg in db_messages:
+        for i, msg in enumerate(db_messages):
             role = "user" if msg.sender == "user" else "model"
-            contents.append(
-                types.Content(
-                    role=role,
-                    parts=[types.Part(text=msg.content)]
+            
+            # If it is the last message (the user's current query), we augment it with retrieved context
+            if i == len(db_messages) - 1 and role == "user":
+                context_str = ""
+                try:
+                    from modules.knowledge_base.vector_store import VectorStoreHelper
+                    vector_store = VectorStoreHelper()
+                    query_vector = vector_store.embed_query(content)
+                    chunks = vector_store.search_similar_chunks(query_vector, top_k=3)
+                    if chunks:
+                        context_str = "Relevant Context from Knowledge Base:\n"
+                        for chunk in chunks:
+                            context_str += f"- From Document '{chunk['title']}': {chunk['text']}\n"
+                except Exception as e:
+                    print(f"Error retrieving context from vector store: {e}")
+                
+                augmented_text = msg.content
+                if context_str:
+                    augmented_text = f"{context_str}\nUser Question: {msg.content}"
+                
+                contents.append(
+                    types.Content(
+                        role=role,
+                        parts=[types.Part(text=augmented_text)]
+                    )
                 )
-            )
+            else:
+                contents.append(
+                    types.Content(
+                        role=role,
+                        parts=[types.Part(text=msg.content)]
+                    )
+                )
 
         # 5. Call Gemini API
         try:
             config = types.GenerateContentConfig(
-                system_instruction="You are a helpful support assistant."
+                system_instruction=(
+                    "You are a helpful support assistant. Answer the user's question "
+                    "using the provided context from the knowledge base if available. "
+                    "If the answer is not in the context, use your general knowledge "
+                    "but state that it is not in the official documentation."
+                )
             )
             response = self.client.models.generate_content(
                 model="gemini-2.5-flash",
