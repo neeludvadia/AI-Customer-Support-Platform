@@ -8,6 +8,7 @@ from database.database import Base
 
 # Import all models so Alembic can detect them for autogenerate
 import modules.auth.models  # noqa: F401
+import modules.chat.models  # noqa: F401
 import modules.knowledge_base.models  # noqa: F401
 
 # ── Alembic Config ────────────────────────────────────────────────────────────
