@@ -1,3 +1,6 @@
 __pycache__
 .env
 .venv
+data
+alembic
+postgres_data
