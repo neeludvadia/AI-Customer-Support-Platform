@@ -30,6 +30,7 @@ class Message(Base):
     sender = Column(String, nullable=False)  # "user" | "assistant"
     content = Column(Text, nullable=False)
     citations = Column(JSON, nullable=True)  # [{document_id, title, filename, page}, ...]
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     conversation = relationship("Conversation", back_populates="messages")

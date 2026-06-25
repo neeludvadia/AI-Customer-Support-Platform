@@ -129,12 +129,41 @@ class ChatService:
                     "page": page,
                 })
 
-        # 7. Save AI reply to database (with citations)
+        # 7. Detect low confidence and escalate to a ticket if needed
+        #    Low confidence = no chunks returned OR best similarity score < 0.5
+        CONFIDENCE_THRESHOLD = 0.60
+        low_confidence = (
+            not retrieved_chunks
+            or max(c.get("score", 0) for c in retrieved_chunks) < CONFIDENCE_THRESHOLD
+        )
+
+        ticket_id: int | None = None
+        if low_confidence:
+            try:
+                from modules.tickets.service import TicketService
+                ticket = TicketService(self.repo.db).create_ticket(
+                    user_id=user_id,
+                    question=content,
+                    conversation_id=conversation_id,
+                )
+                ticket_id = ticket.id
+                # Prepend escalation notice to the AI response
+                escalation_note = (
+                    "[ESCALATED] I wasn't able to find a confident answer in the documentation. "
+                    "A support agent will follow up on your question. "
+                    f"(Ticket #{ticket_id})\n\n"
+                )
+                ai_content = escalation_note + ai_content
+            except Exception as te:
+                print(f"Error creating escalation ticket: {te}")
+
+        # 8. Save AI reply to database (with citations + optional ticket_id)
         ai_msg = self.repo.create_message(
             conversation_id,
             sender="assistant",
             content=ai_content,
             citations=citations if citations else None,
+            ticket_id=ticket_id,
         )
 
         return ai_msg

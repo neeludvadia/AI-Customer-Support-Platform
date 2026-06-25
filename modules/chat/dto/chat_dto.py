@@ -35,6 +35,7 @@ class MessageResponse(BaseModel):
     sender: str
     content: str
     citations: List[Citation] = []
+    ticket_id: Optional[int] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

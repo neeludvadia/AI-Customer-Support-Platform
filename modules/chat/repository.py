@@ -28,12 +28,14 @@ class ChatRepository:
         sender: str,
         content: str,
         citations: list[dict] | None = None,
+        ticket_id: int | None = None,
     ) -> Message:
         message = Message(
             conversation_id=conversation_id,
             sender=sender,
             content=content,
             citations=citations,
+            ticket_id=ticket_id,
         )
         self.db.add(message)
 

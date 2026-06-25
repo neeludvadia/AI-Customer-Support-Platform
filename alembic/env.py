@@ -10,6 +10,7 @@ from database.database import Base
 import modules.auth.models  # noqa: F401
 import modules.chat.models  # noqa: F401
 import modules.knowledge_base.models  # noqa: F401
+import modules.tickets.models  # noqa: F401
 
 # ── Alembic Config ────────────────────────────────────────────────────────────
 config = context.config
