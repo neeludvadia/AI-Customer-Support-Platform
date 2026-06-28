@@ -34,7 +34,7 @@ class MessageResponse(BaseModel):
     conversation_id: int
     sender: str
     content: str
-    citations: List[Citation] = []
+    citations: Optional[List[Citation]] = None
     ticket_id: Optional[int] = None
     created_at: datetime
 

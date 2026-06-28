@@ -6,3 +6,18 @@ export const authRoutes = {
   logout: "/auth/logout",
   me: "/auth/me",
 };
+
+export const ticketRoutes = {
+  list: "/tickets",
+};
+
+export const knowledgeBaseRoutes = {
+  list: "/knowledge-base",
+  upload: "/knowledge-base/upload",
+};
+
+export const chatRoutes = {
+  conversation: "/chat/conversation",
+  message: "/chat/message",
+  history: "/chat/history",
+};
