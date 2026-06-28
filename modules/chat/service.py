@@ -1,23 +1,16 @@
 import os
 from sqlalchemy.orm import Session
-from google import genai
-from google.genai import types
 
-from config.settings import settings
 from modules.chat.repository import ChatRepository
 from modules.chat.models import Conversation, Message
+from modules.ai.ports import LLMProvider, VectorStoreProvider
 
 
 class ChatService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, llm: LLMProvider | None = None, vector_store: VectorStoreProvider | None = None):
         self.repo = ChatRepository(db)
-        
-        # Initialize Gemini Client if API key is provided
-        api_key = settings.GEMINI_API_KEY
-        if not api_key or api_key == "your_gemini_api_key_here":
-            self.client = None
-        else:
-            self.client = genai.Client(api_key=api_key)
+        self.llm = llm
+        self.vector_store = vector_store
 
     def create_conversation(self, user_id: int, title: str | None = None) -> Conversation:
         return self.repo.create_conversation(user_id, title)
@@ -32,11 +25,8 @@ class ChatService:
         return self.repo.list_conversations_by_user(user_id)
 
     def send_message(self, conversation_id: int, user_id: int, content: str) -> Message:
-        if not self.client:
-            raise ValueError(
-                "Gemini API key is not configured. "
-                "Please configure GEMINI_API_KEY in your .env file."
-            )
+        if not self.llm or not self.vector_store:
+            raise ValueError("AI providers are not configured. Cannot send message.")
 
         # 1. Verify conversation access
         conversation = self.get_conversation(conversation_id, user_id)
@@ -46,51 +36,41 @@ class ChatService:
         # 2. Save user message to database
         self.repo.create_message(conversation_id, sender="user", content=content)
 
-        # 3. Fetch full message history for Gemini context
+        # 3. Fetch full message history for context
         db_messages = self.repo.list_messages_by_conversation(conversation_id)
 
-        # 4. Construct content history for Gemini API
-        # Map sender ("user" | "assistant") to Gemini roles ("user" | "model")
-        contents = []
-        retrieved_chunks: list[dict] = []
+        # 4. Search Knowledge Base using the VectorStore
+        # We need an EmbeddingProvider to embed the query first
+        from modules.ai.dependencies import get_embedding_provider
+        embedding_provider = get_embedding_provider()
+        
+        try:
+            query_vector = embedding_provider.embed_texts([content])[0]
+            retrieved_chunks = self.vector_store.search_similar(query_vector, top_k=3)
+        except Exception as e:
+            print(f"Error retrieving context from vector store: {e}")
+            retrieved_chunks = []
 
+        # 5. Build conversation history as a generic list of dicts
+        messages = []
         for i, msg in enumerate(db_messages):
-            role = "user" if msg.sender == "user" else "model"
-
-            # Augment the last user message with relevant context from the knowledge base
-            if i == len(db_messages) - 1 and role == "user":
+            # Augment the last user message with context
+            if i == len(db_messages) - 1 and msg.sender == "user":
                 context_str = ""
-                try:
-                    from modules.knowledge_base.vector_store import VectorStoreHelper
-                    vector_store = VectorStoreHelper()
-                    query_vector = vector_store.embed_query(content)
-                    retrieved_chunks = vector_store.search_similar_chunks(query_vector, top_k=3)
-                    if retrieved_chunks:
-                        context_str = "Relevant Context from Knowledge Base:\n"
-                        for chunk in retrieved_chunks:
-                            context_str += f"- From Document '{chunk['title']}': {chunk['text']}\n"
-                except Exception as e:
-                    print(f"Error retrieving context from vector store: {e}")
-
+                if retrieved_chunks:
+                    context_str = "Relevant Context from Knowledge Base:\n"
+                    for chunk in retrieved_chunks:
+                        context_str += f"- From Document '{chunk['title']}': {chunk['text']}\n"
+                
                 augmented_text = msg.content
                 if context_str:
                     augmented_text = f"{context_str}\nUser Question: {msg.content}"
-
-                contents.append(
-                    types.Content(
-                        role=role,
-                        parts=[types.Part(text=augmented_text)]
-                    )
-                )
+                
+                messages.append({"sender": msg.sender, "text": augmented_text})
             else:
-                contents.append(
-                    types.Content(
-                        role=role,
-                        parts=[types.Part(text=msg.content)]
-                    )
-                )
+                messages.append({"sender": msg.sender, "text": msg.content})
 
-        # 5. Detect low confidence BEFORE calling Gemini
+        # 6. Detect low confidence
         CONFIDENCE_THRESHOLD = 0.60
         low_confidence = (
             not retrieved_chunks
@@ -99,25 +79,15 @@ class ChatService:
 
         ai_content = ""
         
-        # 6. Call Gemini API ONLY if we have confident context
+        # 7. Generate Response using the LLM Provider
         if not low_confidence:
-            try:
-                config = types.GenerateContentConfig(
-                    system_instruction=(
-                        "You are a helpful support assistant. Answer the user's question "
-                        "using the provided context from the knowledge base. "
-                    )
-                )
-                response = self.client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=contents,
-                    config=config
-                )
-                ai_content = response.text or "I am sorry, I could not generate a response."
-            except Exception as e:
-                ai_content = f"Error communicating with AI service: {str(e)}"
+            system_instruction = (
+                "You are a helpful support assistant. Answer the user's question "
+                "using the provided context from the knowledge base. "
+            )
+            ai_content = self.llm.generate_response(system_instruction, messages)
 
-        # 7. Build deduplicated citations from retrieved chunks
+        # 8. Build deduplicated citations
         seen: set[tuple] = set()
         citations: list[dict] = []
         for chunk in retrieved_chunks:
@@ -137,13 +107,13 @@ class ChatService:
                     "page": page,
                 })
 
-        # 8. Escalate to a ticket if low confidence
+        # 9. Escalate to a ticket if low confidence
         ticket_id: int | None = None
         if low_confidence:
             ai_content = "I wasn't able to find a confident answer in our documentation. Would you like me to connect you to a support agent?"
             citations = []
 
-        # 9. Save AI reply to database
+        # 10. Save AI reply to database
         ai_msg = self.repo.create_message(
             conversation_id,
             sender="assistant",

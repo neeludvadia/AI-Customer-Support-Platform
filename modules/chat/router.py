@@ -14,6 +14,8 @@ from modules.chat.dto import (
     EscalateRequest
 )
 from modules.chat.service import ChatService
+from modules.ai.ports import LLMProvider, VectorStoreProvider
+from modules.ai.dependencies import get_llm_provider, get_vector_store_provider
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -33,9 +35,11 @@ def create_conversation(
 def send_message(
     payload: MessageCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    llm: LLMProvider = Depends(get_llm_provider),
+    vector_store: VectorStoreProvider = Depends(get_vector_store_provider),
 ):
-    service = ChatService(db)
+    service = ChatService(db, llm=llm, vector_store=vector_store)
     try:
         ai_msg = service.send_message(
             conversation_id=payload.conversation_id,
@@ -44,8 +48,7 @@ def send_message(
         )
         return ai_msg
     except ValueError as e:
-        # Check if it was an invalid conversation or missing API key
-        if "API key" in str(e):
+        if "API key" in str(e) or "providers" in str(e):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 

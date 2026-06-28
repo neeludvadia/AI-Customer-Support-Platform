@@ -6,6 +6,8 @@ from modules.auth.dependencies import get_current_user
 from modules.auth.models import User
 from modules.knowledge_base.dto import DocumentResponse, DocumentUploadResponse
 from modules.knowledge_base.service import KnowledgeBaseService
+from modules.ai.ports import EmbeddingProvider, VectorStoreProvider
+from modules.ai.dependencies import get_embedding_provider, get_vector_store_provider
 
 router = APIRouter(prefix="/knowledge-base", tags=["Knowledge Base"])
 
@@ -15,6 +17,8 @@ async def upload_pdf(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    embedding_provider: EmbeddingProvider = Depends(get_embedding_provider),
+    vector_store: VectorStoreProvider = Depends(get_vector_store_provider),
 ):
     if file.content_type != "application/pdf":
         raise HTTPException(
@@ -23,7 +27,8 @@ async def upload_pdf(
         )
 
     file_bytes = await file.read()
-    doc = KnowledgeBaseService(db).upload_pdf(
+    service = KnowledgeBaseService(db, embedding_provider=embedding_provider, vector_store=vector_store)
+    doc = service.upload_pdf(
         filename=file.filename,
         file_bytes=file_bytes,
         uploaded_by=current_user.id,
