@@ -90,26 +90,34 @@ class ChatService:
                     )
                 )
 
-        # 5. Call Gemini API
-        try:
-            config = types.GenerateContentConfig(
-                system_instruction=(
-                    "You are a helpful support assistant. Answer the user's question "
-                    "using the provided context from the knowledge base if available. "
-                    "If the answer is not in the context, use your general knowledge "
-                    "but state that it is not in the official documentation."
-                )
-            )
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=contents,
-                config=config
-            )
-            ai_content = response.text or "I am sorry, I could not generate a response."
-        except Exception as e:
-            ai_content = f"Error communicating with AI service: {str(e)}"
+        # 5. Detect low confidence BEFORE calling Gemini
+        CONFIDENCE_THRESHOLD = 0.60
+        low_confidence = (
+            not retrieved_chunks
+            or max(c.get("score", 0) for c in retrieved_chunks) < CONFIDENCE_THRESHOLD
+        )
 
-        # 6. Build deduplicated citations from retrieved chunks
+        ai_content = ""
+        
+        # 6. Call Gemini API ONLY if we have confident context
+        if not low_confidence:
+            try:
+                config = types.GenerateContentConfig(
+                    system_instruction=(
+                        "You are a helpful support assistant. Answer the user's question "
+                        "using the provided context from the knowledge base. "
+                    )
+                )
+                response = self.client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=contents,
+                    config=config
+                )
+                ai_content = response.text or "I am sorry, I could not generate a response."
+            except Exception as e:
+                ai_content = f"Error communicating with AI service: {str(e)}"
+
+        # 7. Build deduplicated citations from retrieved chunks
         seen: set[tuple] = set()
         citations: list[dict] = []
         for chunk in retrieved_chunks:
@@ -129,14 +137,7 @@ class ChatService:
                     "page": page,
                 })
 
-        # 7. Detect low confidence and escalate to a ticket if needed
-        #    Low confidence = no chunks returned OR best similarity score < 0.5
-        CONFIDENCE_THRESHOLD = 0.60
-        low_confidence = (
-            not retrieved_chunks
-            or max(c.get("score", 0) for c in retrieved_chunks) < CONFIDENCE_THRESHOLD
-        )
-
+        # 8. Escalate to a ticket if low confidence
         ticket_id: int | None = None
         if low_confidence:
             try:
@@ -147,15 +148,14 @@ class ChatService:
                     conversation_id=conversation_id,
                 )
                 ticket_id = ticket.id
-                # Prepend escalation notice to the AI response
-                escalation_note = (
-                    "[ESCALATED] I wasn't able to find a confident answer in the documentation. "
-                    "A support agent will follow up on your question. "
-                    f"(Ticket #{ticket_id})\n\n"
+                ai_content = (
+                    "I wasn't able to find a confident answer in our documentation. "
+                    "To ensure you get the right help, I have automatically escalated this to a support agent. "
+                    f"(Ticket #{ticket_id})"
                 )
-                ai_content = escalation_note + ai_content
             except Exception as te:
                 print(f"Error creating escalation ticket: {te}")
+                ai_content = "I couldn't find an answer in the documentation, and there was an error creating a support ticket. Please try again later."
 
         # 8. Save AI reply to database (with citations + optional ticket_id)
         ai_msg = self.repo.create_message(
