@@ -20,4 +20,5 @@ export const chatRoutes = {
   conversation: "/chat/conversation",
   message: "/chat/message",
   history: "/chat/history",
+  escalate: "/chat/escalate",
 };

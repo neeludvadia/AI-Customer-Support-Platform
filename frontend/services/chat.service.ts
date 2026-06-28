@@ -27,6 +27,20 @@ export const chatService = {
     return response.json();
   },
 
+  escalate: async (conversationId: number): Promise<MessageResponse> => {
+    const response = await fetch(`${API_BASE_URL}${chatRoutes.escalate}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: conversationId }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to escalate conversation");
+    }
+    return response.json();
+  },
+
   getHistory: async (): Promise<ConversationResponse[]> => {
     const response = await fetch(`${API_BASE_URL}${chatRoutes.history}`, {
       method: "GET",

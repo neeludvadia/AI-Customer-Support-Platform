@@ -98,6 +98,19 @@ export function ChatInterface() {
     }
   };
 
+  const handleEscalate = async () => {
+    if (!activeConversationId || isLoading) return;
+    setIsLoading(true);
+    try {
+      const newMsg = await chatService.escalate(activeConversationId);
+      setMessages((prev) => [...prev, newMsg]);
+    } catch (error: any) {
+      alert(error.message || "Failed to escalate");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] bg-white rounded-xl shadow overflow-hidden border border-gray-200">
       
@@ -172,6 +185,19 @@ export function ChatInterface() {
                       <span className="inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800">
                         Ticket Created: #{msg.ticket_id}
                       </span>
+                    </div>
+                  )}
+
+                  {/* Escalate Prompt Button */}
+                  {msg.sender === "assistant" && (!msg.citations || msg.citations.length === 0) && !msg.ticket_id && (
+                    <div className="mt-3 pt-3 border-t border-gray-300">
+                      <button
+                        onClick={handleEscalate}
+                        disabled={isLoading}
+                        className="inline-flex items-center rounded-md bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
+                      >
+                        Create Support Ticket
+                      </button>
                     </div>
                   )}
                 </div>

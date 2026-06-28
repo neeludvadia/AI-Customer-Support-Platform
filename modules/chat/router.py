@@ -10,7 +10,8 @@ from modules.chat.dto import (
     ConversationDetailResponse,
     ConversationCreateRequest,
     MessageCreateRequest,
-    MessageResponse
+    MessageResponse,
+    EscalateRequest
 )
 from modules.chat.service import ChatService
 
@@ -46,6 +47,22 @@ def send_message(
         # Check if it was an invalid conversation or missing API key
         if "API key" in str(e):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/escalate", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+def escalate_conversation(
+    payload: EscalateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    service = ChatService(db)
+    try:
+        return service.escalate_conversation(
+            conversation_id=payload.conversation_id,
+            user_id=current_user.id
+        )
+    except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 

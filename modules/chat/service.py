@@ -140,24 +140,10 @@ class ChatService:
         # 8. Escalate to a ticket if low confidence
         ticket_id: int | None = None
         if low_confidence:
-            try:
-                from modules.tickets.service import TicketService
-                ticket = TicketService(self.repo.db).create_ticket(
-                    user_id=user_id,
-                    question=content,
-                    conversation_id=conversation_id,
-                )
-                ticket_id = ticket.id
-                ai_content = (
-                    "I wasn't able to find a confident answer in our documentation. "
-                    "To ensure you get the right help, I have automatically escalated this to a support agent. "
-                    f"(Ticket #{ticket_id})"
-                )
-            except Exception as te:
-                print(f"Error creating escalation ticket: {te}")
-                ai_content = "I couldn't find an answer in the documentation, and there was an error creating a support ticket. Please try again later."
+            ai_content = "I wasn't able to find a confident answer in our documentation. Would you like me to connect you to a support agent?"
+            citations = []
 
-        # 8. Save AI reply to database (with citations + optional ticket_id)
+        # 9. Save AI reply to database
         ai_msg = self.repo.create_message(
             conversation_id,
             sender="assistant",
@@ -168,3 +154,32 @@ class ChatService:
 
         return ai_msg
 
+    def escalate_conversation(self, conversation_id: int, user_id: int) -> Message:
+        conversation = self.get_conversation(conversation_id, user_id)
+        if not conversation:
+            raise ValueError("Conversation not found")
+
+        # Find the last user message to use as the question
+        db_messages = self.repo.list_messages_by_conversation(conversation_id)
+        last_user_msg = None
+        for msg in reversed(db_messages):
+            if msg.sender == "user":
+                last_user_msg = msg
+                break
+        
+        question = last_user_msg.content if last_user_msg else "User requested escalation"
+
+        from modules.tickets.service import TicketService
+        ticket = TicketService(self.repo.db).create_ticket(
+            user_id=user_id,
+            question=question,
+            conversation_id=conversation_id,
+        )
+
+        ai_msg = self.repo.create_message(
+            conversation_id,
+            sender="assistant",
+            content=f"I have escalated your request to a support agent. (Ticket #{ticket.id})",
+            ticket_id=ticket.id,
+        )
+        return ai_msg

@@ -3,7 +3,8 @@ from modules.chat.dto.chat_dto import (
     ConversationResponse,
     MessageCreateRequest,
     MessageResponse,
-    ConversationDetailResponse
+    ConversationDetailResponse,
+    EscalateRequest
 )
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "ConversationResponse",
     "MessageCreateRequest",
     "MessageResponse",
-    "ConversationDetailResponse"
+    "ConversationDetailResponse",
+    "EscalateRequest"
 ]

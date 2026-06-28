@@ -22,6 +22,10 @@ class MessageCreateRequest(BaseModel):
     content: str
 
 
+class EscalateRequest(BaseModel):
+    conversation_id: int
+
+
 class Citation(BaseModel):
     document_id: int
     title: str
