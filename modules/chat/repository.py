@@ -51,3 +51,9 @@ class ChatRepository:
 
     def list_messages_by_conversation(self, conversation_id: int) -> list[Message]:
         return self.db.query(Message).filter(Message.conversation_id == conversation_id).order_by(Message.created_at.asc()).all()
+
+    def update_message_ticket_id(self, message_id: int, ticket_id: int) -> None:
+        message = self.db.query(Message).filter(Message.id == message_id).first()
+        if message:
+            message.ticket_id = ticket_id
+            self.db.commit()

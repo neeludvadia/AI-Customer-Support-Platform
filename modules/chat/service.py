@@ -129,13 +129,15 @@ class ChatService:
         if not conversation:
             raise ValueError("Conversation not found")
 
-        # Find the last user message to use as the question
+        # Find the last user message and last assistant message
         db_messages = self.repo.list_messages_by_conversation(conversation_id)
         last_user_msg = None
+        last_assistant_msg = None
         for msg in reversed(db_messages):
-            if msg.sender == "user":
+            if msg.sender == "user" and not last_user_msg:
                 last_user_msg = msg
-                break
+            elif msg.sender == "assistant" and not last_assistant_msg:
+                last_assistant_msg = msg
         
         question = last_user_msg.content if last_user_msg else "User requested escalation"
 
@@ -145,6 +147,10 @@ class ChatService:
             question=question,
             conversation_id=conversation_id,
         )
+
+        # Update the previous low-confidence message so the UI hides the Escalate button
+        if last_assistant_msg:
+            self.repo.update_message_ticket_id(last_assistant_msg.id, ticket.id)
 
         ai_msg = self.repo.create_message(
             conversation_id,

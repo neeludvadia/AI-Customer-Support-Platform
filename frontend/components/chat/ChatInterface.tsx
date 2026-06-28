@@ -98,12 +98,18 @@ export function ChatInterface() {
     }
   };
 
-  const handleEscalate = async () => {
+  const handleEscalate = async (msgIndex: number) => {
     if (!activeConversationId || isLoading) return;
     setIsLoading(true);
     try {
       const newMsg = await chatService.escalate(activeConversationId);
-      setMessages((prev) => [...prev, newMsg]);
+      setMessages((prev) => {
+        const updated = [...prev];
+        if (updated[msgIndex]) {
+          updated[msgIndex] = { ...updated[msgIndex], ticket_id: newMsg.ticket_id };
+        }
+        return [...updated, newMsg];
+      });
     } catch (error: any) {
       alert(error.message || "Failed to escalate");
     } finally {
@@ -192,7 +198,7 @@ export function ChatInterface() {
                   {msg.sender === "assistant" && (!msg.citations || msg.citations.length === 0) && !msg.ticket_id && (
                     <div className="mt-3 pt-3 border-t border-gray-300">
                       <button
-                        onClick={handleEscalate}
+                        onClick={() => handleEscalate(index)}
                         disabled={isLoading}
                         className="inline-flex items-center rounded-md bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
                       >
