@@ -1,9 +1,10 @@
 import { API_BASE_URL, chatRoutes } from "@/constants/api";
 import { ConversationResponse, ConversationDetailResponse, MessageResponse } from "@/types/chat";
+import { fetchWithAuth } from "@/utils/fetchWithAuth";
 
 export const chatService = {
   createConversation: async (title?: string): Promise<ConversationResponse> => {
-    const response = await fetch(`${API_BASE_URL}${chatRoutes.conversation}`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}${chatRoutes.conversation}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -14,7 +15,7 @@ export const chatService = {
   },
 
   sendMessage: async (conversationId: number, content: string): Promise<MessageResponse> => {
-    const response = await fetch(`${API_BASE_URL}${chatRoutes.message}`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}${chatRoutes.message}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -28,7 +29,7 @@ export const chatService = {
   },
 
   escalate: async (conversationId: number): Promise<MessageResponse> => {
-    const response = await fetch(`${API_BASE_URL}${chatRoutes.escalate}`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}${chatRoutes.escalate}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -42,7 +43,7 @@ export const chatService = {
   },
 
   getHistory: async (): Promise<ConversationResponse[]> => {
-    const response = await fetch(`${API_BASE_URL}${chatRoutes.history}`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}${chatRoutes.history}`, {
       method: "GET",
       credentials: "include",
     });
@@ -51,7 +52,7 @@ export const chatService = {
   },
 
   getConversationDetail: async (id: number): Promise<ConversationDetailResponse> => {
-    const response = await fetch(`${API_BASE_URL}${chatRoutes.history}/${id}`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}${chatRoutes.history}/${id}`, {
       method: "GET",
       credentials: "include",
     });

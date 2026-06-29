@@ -1,10 +1,11 @@
 import { API_BASE_URL, ticketRoutes } from "@/constants/api";
 import { TicketResponse } from "@/types/ticket";
+import { fetchWithAuth } from "@/utils/fetchWithAuth";
 
 export const ticketService = {
   getTickets: async (): Promise<TicketResponse[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}${ticketRoutes.list}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}${ticketRoutes.list}`, {
         method: "GET",
         credentials: "include",
         headers: {

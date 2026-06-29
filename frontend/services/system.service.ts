@@ -1,10 +1,11 @@
 import { API_BASE_URL, systemRoutes } from "@/constants/api";
 import { HealthResponse } from "@/types/system";
+import { fetchWithAuth } from "@/utils/fetchWithAuth";
 
 export const systemService = {
   getHealth: async (): Promise<HealthResponse> => {
     try {
-      const response = await fetch(`${API_BASE_URL}${systemRoutes.health}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}${systemRoutes.health}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

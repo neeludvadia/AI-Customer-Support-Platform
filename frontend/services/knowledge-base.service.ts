@@ -1,10 +1,11 @@
 import { API_BASE_URL, knowledgeBaseRoutes } from "@/constants/api";
 import { DocumentResponse, DocumentUploadResponse } from "@/types/knowledge-base";
+import { fetchWithAuth } from "@/utils/fetchWithAuth";
 
 export const knowledgeBaseService = {
   getDocuments: async (): Promise<DocumentResponse[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}${knowledgeBaseRoutes.list}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}${knowledgeBaseRoutes.list}`, {
         method: "GET",
         credentials: "include",
         headers: {
@@ -30,7 +31,7 @@ export const knowledgeBaseService = {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(`${API_BASE_URL}${knowledgeBaseRoutes.upload}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}${knowledgeBaseRoutes.upload}`, {
         method: "POST",
         credentials: "include",
         // Note: Do not set Content-Type header when sending FormData.

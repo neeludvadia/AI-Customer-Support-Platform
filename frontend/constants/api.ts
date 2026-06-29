@@ -5,6 +5,7 @@ export const authRoutes = {
   register: "/auth/register",
   logout: "/auth/logout",
   me: "/auth/me",
+  refresh: "/auth/refresh",
 };
 
 export const ticketRoutes = {

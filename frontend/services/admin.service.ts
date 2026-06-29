@@ -1,10 +1,11 @@
 import { API_BASE_URL, adminRoutes } from "@/constants/api";
 import { DashboardMetrics } from "@/types/admin";
+import { fetchWithAuth } from "@/utils/fetchWithAuth";
 
 export const adminService = {
   getMetrics: async (): Promise<DashboardMetrics> => {
     try {
-      const response = await fetch(`${API_BASE_URL}${adminRoutes.metrics}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}${adminRoutes.metrics}`, {
         method: "GET",
         credentials: "include",
         headers: {
