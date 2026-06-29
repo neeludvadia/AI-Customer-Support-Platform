@@ -49,7 +49,7 @@ Make sure you have the following installed:
    ```bash
    docker-compose up -d
    ```
-   *(This starts PostgreSQL on port 5432 and Qdrant on port 6333)*
+   *(This starts PostgreSQL on port 5433 and Qdrant on port 6333)*
 3. **Create a Virtual Environment & Install Dependencies**:
    ```bash
    python -m venv .venv
@@ -64,9 +64,9 @@ Make sure you have the following installed:
    ```
 6. **Start the FastAPI Server**:
    ```bash
-   uvicorn main:app --reload --reload-exclude "./frontend"
+   uvicorn main:app --reload --reload-exclude "./frontend" --host 127.0.0.1 --port 3456
    ```
-   *The backend will be running at `http://localhost:8000`*
+   *The backend will be running at `http://127.0.0.1:3456`*
 
 ### 3. Set Up the Frontend
 1. **Navigate to the frontend folder**:
@@ -92,6 +92,7 @@ Make sure you have the following installed:
 │   ├── config/               # App configuration and Environment variables
 │   ├── database/             # PostgreSQL connection setup
 │   ├── modules/              # Core Application Logic (Clean Architecture)
+│   │   ├── admin/            # Admin Dashboard endpoints and metrics
 │   │   ├── ai/               # AI Ports, Adapters, and Dependencies (Gemini, Qdrant)
 │   │   ├── auth/             # User registration and login
 │   │   ├── chat/             # AI Conversation and Message history
@@ -102,7 +103,7 @@ Make sure you have the following installed:
 │
 ├── frontend/                 
 │   ├── app/                  # Next.js App Router (Pages)
-│   ├── components/           # Reusable UI components (ChatInterface, etc.)
+│   ├── components/           # Reusable UI components (Dashboard, ChatInterface)
 │   ├── services/             # API caller functions
 │   └── types/                # TypeScript interface definitions
 │

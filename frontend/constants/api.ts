@@ -22,3 +22,11 @@ export const chatRoutes = {
   history: "/chat/history",
   escalate: "/chat/escalate",
 };
+
+export const adminRoutes = {
+  metrics: "/admin/metrics",
+};
+
+export const systemRoutes = {
+  health: "/health",
+};
